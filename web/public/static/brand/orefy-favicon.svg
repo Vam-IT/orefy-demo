@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="32" height="32"><defs><clipPath id="r"><polygon points="60,8 12,40 18,92 64,112"></polygon></clipPath></defs><polygon points="60,8 12,40 18,92 64,112" fill="#262A32"></polygon>
+<g clip-path="url(#r)" fill="none" stroke="#5E6574" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M8 30 L28 27 L42 32 L64 28"></path><path d="M8 44 L22 47 L38 42 L64 45"></path><path d="M8 58 L28 55 L45 60 L64 56"></path>
+<path d="M8 72 L20 75 L36 70 L64 73"></path><path d="M8 86 L26 83 L46 88 L64 85"></path><path d="M8 100 L30 103 L64 99"></path>
+</g><polygon points="60,8 104,32 82,58" fill="#F2C46D"></polygon>
+<polygon points="104,32 108,78 82,58" fill="#E0A13F"></polygon>
+<polygon points="108,78 64,112 82,58" fill="#A8661F"></polygon>
+<polygon points="64,112 60,8 82,58" fill="#CF8A32"></polygon></svg>
