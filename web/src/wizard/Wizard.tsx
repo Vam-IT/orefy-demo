@@ -356,7 +356,9 @@ function Delivery({ run, t, update }: StepProps) {
   const pr = prov.pr
 
   useEffect(() => {
-    if (started !== null) box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (started === null || !box.current) return
+    // Not scrollIntoView: inside the embed it would scroll orefy.cloud as well. 84px clears the sticky top bar.
+    window.scrollTo({ top: box.current.getBoundingClientRect().top + window.scrollY - 84, behavior: 'smooth' })
   }, [started])
 
   const repoGroup = t('Repository', 'Repository')
