@@ -173,6 +173,8 @@ a.btn { text-decoration: none; }
 .result-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 .result b { font-size: var(--fs-h4); color: var(--text-strong); letter-spacing: var(--ls-heading); }
 .result div span:last-child { color: var(--text-muted); font-size: 13px; }
+.result-facts .status { white-space: normal; }
+.result-facts .mono { overflow-wrap: anywhere; }
 .result-facts { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-7); margin-top: var(--space-5); }
 .how { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-5); margin: var(--space-6) 0; }
 .how li { display: grid; gap: var(--space-2); align-content: start; }
@@ -333,6 +335,23 @@ a.btn { text-decoration: none; }
 .banner { display: flex; align-items: center; gap: var(--space-5); margin-top: var(--space-5); padding: var(--space-5); border-radius: var(--radius-md); border: 1px solid var(--border-default); }
 .banner.ok { background: color-mix(in srgb, var(--success) 10%, transparent); border-color: color-mix(in srgb, var(--success) 40%, transparent); }
 .banner.ok .icon { color: var(--success); }
+/* Handover to a repository and pipeline */
+.delivery { scroll-margin-top: var(--space-7); }
+.delivery-target { display: flex; flex-wrap: wrap; gap: var(--space-5); align-items: end; }
+.delivery-target .field:last-child { flex: 1; min-width: 240px; }
+.field > .repo-input { font-size: 14px; font-weight: 400; color: var(--text-body); }
+.repo-input { display: flex; align-items: center; gap: 2px; }
+.repo-input input { flex: 1; min-width: 0; }
+.delivery .choices { margin-top: var(--space-6); }
+.track { display: grid; gap: var(--space-5); }
+.track-group h4 { margin: 0 0 var(--space-2); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.track .phases { margin-bottom: 0; }
+.phase-gate { align-items: flex-start; padding: var(--space-4); margin: var(--space-2) 0; border: 1px solid var(--accent); border-radius: var(--radius-md); background: var(--accent-soft); }
+.phase-gate .phase-icon { color: var(--accent-press); padding-top: 2px; }
+.gate { display: grid; gap: var(--space-3); justify-items: start; }
+.gate small { color: var(--text-muted); font-size: 13px; }
+.push-files { display: grid; gap: 2px; margin: var(--space-3) 0 0; padding-left: var(--space-6); font-size: 12.5px; color: var(--text-muted); }
+.scope-list li[data-off='true'] { opacity: 0.55; }
 .banner div { display: grid; gap: 2px; }
 .banner b { color: var(--text-strong); }
 .banner span { color: var(--text-muted); }
@@ -400,6 +419,10 @@ a.btn { text-decoration: none; }
 .map-group:first-child { grid-column: 1 / -1; }
 .map-group h3 { display: flex; justify-content: space-between; margin-bottom: var(--space-3); }
 .map-group h3 span { color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.map-group h3 .with-logo { color: var(--text-strong); font-weight: inherit; }
+.scope-list .with-logo b { display: inline; }
+.track-group h4 { display: flex; align-items: center; gap: 8px; }
+.choice .logo { margin: 0 2px; }
 .map-group ul { display: flex; flex-wrap: wrap; gap: 6px; }
 .tile { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-card); font-size: 12.5px; }
 .tile span { color: var(--text-strong); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -472,13 +495,29 @@ a.btn { text-decoration: none; }
 }
 @media (max-width: 520px) {
   .kpis, .how { grid-template-columns: minmax(0, 1fr); }
-  .wizard-foot .btn { padding: 0 12px; }
+  .wizard-foot { gap: var(--space-3); }
+  .wizard-foot .btn { height: auto; min-height: 44px; min-width: 0; padding: 6px 10px; white-space: normal; text-align: center; }
   .topbar { gap: var(--space-3); }
   .topbar-right { gap: 2px; }
   .theme-btn, .demo-flag, .cta-long { display: none; }
   .cta-short { display: inline; }
+  .delivery .handover-actions .btn { width: 100%; height: auto; min-height: var(--control-h-md); padding: 8px 14px; white-space: normal; text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   .spin { animation-duration: 2.4s; }
   .btn { transition: none; }
+}
+
+/* Brand marks */
+.logo { flex: none; vertical-align: -0.15em; }
+.logo-fallback { display: inline-grid; color: var(--text-muted); }
+.segmented button { display: inline-flex; align-items: center; gap: 6px; }
+.with-logo { display: inline-flex; align-items: center; gap: 8px; }
+.works-with { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-6); margin-top: var(--space-6); padding-top: var(--space-5); border-top: 1px solid var(--border-subtle); font-size: 13px; color: var(--text-muted); }
+.works-with span { display: inline-flex; align-items: center; gap: 8px; }
+.works-with b { color: var(--text-strong); font-weight: 600; }
+.map-more { display: none; }
+@media (max-width: 520px) {
+  .tile-more { display: none; }
+  .map-more { display: inline-flex; }
 }

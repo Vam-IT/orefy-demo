@@ -77,7 +77,7 @@ export function Contact() {
             <span className="hint">
               {!CONTACT_ENDPOINT && t('Öffnet Ihr E-Mail-Programm mit der fertigen Nachricht. ', 'Opens your mail program with the finished message. ')}
               {t('Wir verwenden Ihre Angaben nur, um auf diese Anfrage zu antworten.', 'We use your details only to answer this request.')}{' '}
-              <a className="link" href={`${WEBSITE_URL}privacy.html`}>{t('Datenschutz', 'Privacy')}</a>
+              <a className="link" href={`${WEBSITE_URL}privacy.html`} target="_blank" rel="noopener">{t('Datenschutz', 'Privacy')}</a>
             </span>
           </div>
           {state === 'mail' && (

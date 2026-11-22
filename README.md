@@ -18,6 +18,7 @@ Served at `https://demo.orefy.cloud` from GitHub Pages.
 | `web/src/wizard/` | The six-step guided run |
 | `web/src/pages/` | Start/overview, runs, inventory, code, findings, security, feature scope, contact |
 | `web/src/shell/` | Top bar, navigation, legal footer |
+| `web/src/logos.ts` | Brand marks (AWS, Terraform, GitHub, GitLab, AWS services), SVG paths from Simple Icons (CC0) |
 | `web/public/CNAME` | Custom domain for GitHub Pages |
 | `.github/workflows/pages.yml` | Lint, build and deploy to GitHub Pages |
 
@@ -36,6 +37,7 @@ npm run build
 | Parameter | Effect |
 |---|---|
 | `?company=Muster%20AG` | Shows the prospect's name as the target instead of "Demo GmbH" (max. 40 characters). |
+| `?lang=en` | Opens the demo in English. The embed on orefy.cloud uses it. |
 | `?fast` | Shortens the simulated waiting times, for live presentations. |
 
 Both can be combined: `https://demo.orefy.cloud/?company=Muster%20AG&fast`.
@@ -76,5 +78,7 @@ The demo is public, so everything in it is a public statement about the product.
 3. DNS at Strato for `orefy.cloud`: `CNAME demo → vam-it.github.io`.
 4. Once the certificate is issued, enable "Enforce HTTPS" in the Pages settings.
 
-The legal footer links to the imprint and privacy policy on `orefy.cloud`. The demo stores the run state in the
-browser's session storage and the language and theme choice in local storage; nothing is sent to a server.
+The legal footer links to the imprint and privacy policy on `orefy.cloud`. The demo stores nothing on the
+visitor's device, as that privacy policy promises; a reload starts over. Nothing is sent to a server.
+
+The demo is embedded on `orefy.cloud` in an iframe that loads on click, so links to other pages need `target="_blank"`.

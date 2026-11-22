@@ -13,6 +13,9 @@ const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.l
 /** `?company=Name` personalises the tour for a prospect. React escapes the value on output. */
 const company = params.get('company')?.trim().slice(0, 40) || 'Demo GmbH'
 
+/** `?lang=en` opens the demo in English, for links from the English website. */
+export const START_LANG: 'de' | 'en' = params.get('lang') === 'en' ? 'en' : 'de'
+
 /** `?fast` shortens the simulated waiting times, for live presentations. */
 export const SPEED = params.has('fast') ? 0.15 : 1
 
@@ -30,6 +33,8 @@ export const TERMS = {
   import: { de: 'Verknüpft eine bestehende Ressource mit dem Code, ohne sie neu anzulegen.', en: 'Links an existing resource to the code without recreating it.' },
   module: { de: 'Fertiger, von der Community gepflegter Baustein für wiederkehrende Infrastruktur.', en: 'Ready-made building block for recurring infrastructure, maintained by the community.' },
   raw: { de: 'Ressource ohne passenden Baustein. Sie wird direkt beschrieben und gekennzeichnet.', en: 'Resource without a matching building block. It is described directly and marked.' },
+  cicd: { de: 'Eine automatische Pipeline prüft jede Code-Änderung und wendet sie nach Freigabe an, ohne Handarbeit in der Konsole.', en: 'An automatic pipeline checks every code change and applies it after approval, with no manual work in the console.' },
+  oidc: { de: 'Die Pipeline erhält kurzlebige Zugangsdaten für genau diesen Lauf. Es werden keine dauerhaften AWS-Schlüssel im Repository gespeichert.', en: 'The pipeline gets short-lived credentials for exactly this run. No permanent AWS keys are stored in the repository.' },
   pr: { de: 'Änderungsvorschlag in Ihrem Code-Repository, den Ihr Team prüft und freigibt.', en: 'Proposed change in your code repository that your team reviews and approves.' },
 } satisfies Record<string, L10n>
 export type TermKey = keyof typeof TERMS
@@ -40,6 +45,25 @@ export const TARGET = {
   roleArn: 'arn:aws:iam::482719360155:role/OrefyReadOnly',
   region: 'eu-central-1',
 }
+
+export type Provider = 'github' | 'gitlab'
+
+export const PROVIDERS: { id: Provider; label: string; pr: string; pipeline: string; file: string }[] = [
+  { id: 'github', label: 'GitHub', pr: 'Pull Request', pipeline: 'GitHub Actions', file: '.github/workflows/terraform.yml' },
+  { id: 'gitlab', label: 'GitLab', pr: 'Merge Request', pipeline: 'GitLab CI/CD', file: '.gitlab-ci.yml' },
+]
+
+/** Organisation or group the demo pretends to push into. */
+export const DEMO_ORG = 'demo-gmbh'
+export const DEFAULT_REPO = 'aws-prod-eu-infrastructure'
+/** Write role that lives in the customer's account and is assumed by the customer's pipeline, never by Orefy. */
+export const DEPLOY_ROLE_ARN = 'arn:aws:iam::482719360155:role/PipelineTerraformDeploy'
+
+/** Read-only role for the checks. Pull requests never see the write role. */
+export const PLAN_ROLE_ARN = 'arn:aws:iam::482719360155:role/PipelineTerraformPlan'
+export const STATE_BUCKET = 'demo-gmbh-terraform-state'
+/** S3 state locking without DynamoDB needs 1.11 or later. */
+export const TERRAFORM_VERSION = '1.11.4'
 
 export const SERVICES: { id: Service; label: string; what: L10n }[] = [
   { id: 'ec2', label: 'EC2 & VPC', what: { de: 'Netzwerke, Subnetze, Security Groups, Instanzen', en: 'Networks, subnets, security groups, instances' } },
@@ -106,7 +130,7 @@ export const CALLS: ModuleCall[] = [
     inputs: [
       i('name', q('web-01')), i('instance_type', q('t3.medium')), i('ami', q('ami-0a1b2c3d4e5f60718')),
       i('subnet_id', 'module.prod_main.public_subnets[0]'),
-      i('vpc_security_group_ids', '[module.sg_web.security_group_id]'),
+      i('vpc_security_group_ids', '[module.sg_web.id]'),
       i('ebs_optimized', 'true', true),
     ],
   },
@@ -115,7 +139,7 @@ export const CALLS: ModuleCall[] = [
     inputs: [
       i('name', q('web-02')), i('instance_type', q('t3.medium')), i('ami', q('ami-0a1b2c3d4e5f60718')),
       i('subnet_id', 'module.prod_main.public_subnets[1]'),
-      i('vpc_security_group_ids', '[module.sg_web.security_group_id]'),
+      i('vpc_security_group_ids', '[module.sg_web.id]'),
     ],
   },
   {
@@ -123,7 +147,7 @@ export const CALLS: ModuleCall[] = [
     inputs: [
       i('name', q('bastion')), i('instance_type', q('t3.micro')), i('ami', q('ami-09f8e7d6c5b4a3921')),
       i('subnet_id', 'module.prod_main.public_subnets[0]'),
-      i('vpc_security_group_ids', '[module.sg_bastion_old.security_group_id]'),
+      i('vpc_security_group_ids', '[module.sg_bastion_old.id]'),
     ],
   },
   {

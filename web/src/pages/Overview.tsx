@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { findingsFor, stats } from '../demo/data.ts'
 import { useStore } from '../demo/store.tsx'
-import { Button, Icon, PageHead, Status, Term, type IconName } from '../ui.tsx'
+import { Button, Icon, Logo, PageHead, Status, Term, type IconName } from '../ui.tsx'
 import { Outcomes, formatTime, runStatus, type Go } from './shared.tsx'
 
 export function Overview({ go }: { go: Go }) {
@@ -28,6 +28,11 @@ export function Overview({ go }: { go: Go }) {
           <div className="start-cta">
             <Button variant="primary" iconRight="arrowRight" onClick={begin}>{t('Demo starten', 'Start the demo')}</Button>
             <span className="muted">{t('Mit Beispieldaten. Es wird nichts installiert und kein Account verbunden.', 'With example data. Nothing is installed and no account is connected.')}</span>
+          </div>
+          <div className="works-with">
+            <span><Logo name="aws" size={22} /><span>{t('Liest', 'Reads')} <b>Amazon Web Services</b></span></span>
+            <span><Logo name="terraform" size={20} /><span>{t('Schreibt', 'Writes')} <b>Terraform</b></span></span>
+            <span><Logo name="github" size={20} /><Logo name="gitlab" size={20} /><span>{t('Übergabe an', 'Hands over to')} <b>GitHub</b> {t('und', 'and')} <b>GitLab</b> ({t('geplant', 'planned')})</span></span>
           </div>
         </section>
 

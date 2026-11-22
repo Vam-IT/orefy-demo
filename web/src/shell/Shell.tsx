@@ -10,7 +10,7 @@ import { Overview } from '../pages/Overview.tsx'
 import { Runs } from '../pages/Runs.tsx'
 import { Security } from '../pages/Security.tsx'
 import { track } from '../track.ts'
-import { Icon, type IconName } from '../ui.tsx'
+import { Icon, Logo, type IconName } from '../ui.tsx'
 import { Wizard } from '../wizard/Wizard.tsx'
 
 interface NavItem { to: string; icon: IconName; label: string }
@@ -66,7 +66,7 @@ export function Shell() {
           <img src="/static/brand/orefy-logo-dark.svg" alt="Orefy" width="81" height="24" />
         </a>
         <div className="target" title={t('Beispiel-Account dieser Demo', 'Example account of this demo')}>
-          <Icon name="cloud" />
+          <Logo name="aws" size={18} label="AWS" />
           <span>{TARGET.name}</span>
         </div>
         <span className="demo-flag" title={t('Alle Daten sind erfunden. Es wird kein Account verbunden.', 'All data is invented. No account is connected.')}>
@@ -109,9 +109,9 @@ export function Shell() {
         {page}
         <footer className="legal">
           <span>© 2026 Orefy · VAMIT UG (haftungsbeschränkt)</span>
-          <a href={WEBSITE_URL}>orefy.cloud</a>
-          <a href={`${WEBSITE_URL}imprint.html`}>{t('Impressum', 'Imprint')}</a>
-          <a href={`${WEBSITE_URL}privacy.html`}>{t('Datenschutz', 'Privacy')}</a>
+          <a href={WEBSITE_URL} target="_blank" rel="noopener">orefy.cloud</a>
+          <a href={`${WEBSITE_URL}imprint.html`} target="_blank" rel="noopener">{t('Impressum', 'Imprint')}</a>
+          <a href={`${WEBSITE_URL}privacy.html`} target="_blank" rel="noopener">{t('Datenschutz', 'Privacy')}</a>
         </footer>
       </main>
     </div>

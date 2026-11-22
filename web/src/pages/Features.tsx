@@ -13,7 +13,8 @@ export function Features({ go }: { go: Go }) {
     [t('Diese Konsole', 'This console'), t('Geführter Ablauf vom Verbinden bis zur Übergabe.', 'Guided workflow from connecting to handover.')],
   ]
   const planned: [string, string][] = [
-    [t('Übergabe als Pull Request', 'Handover as pull request'), t('Der Code landet direkt in Ihrem Repository zur Prüfung.', 'The code arrives in your repository for review.')],
+    [t('Übergabe an GitHub und GitLab', 'Handover to GitHub and GitLab'), t('Der Code landet als Pull bzw. Merge Request direkt in Ihrem Repository. Bitbucket und Azure DevOps folgen.', 'The code arrives in your repository as a pull or merge request. Bitbucket and Azure DevOps follow.')],
+    [t('CI/CD-Pipeline mit Deployment', 'CI/CD pipeline with deployment'), t('Fertige Pipeline für GitHub Actions oder GitLab CI/CD: prüft jede Änderung und wendet sie nach Freigabe mit kurzlebigen Zugangsdaten (OIDC) in AWS an.', 'Ready-made pipeline for GitHub Actions or GitLab CI/CD: checks every change and applies it to AWS after approval, using short-lived credentials (OIDC).')],
     [t('Sicherheit und Compliance', 'Security and compliance'), t('Abgleich mit CIS, ISO 27001, BSI C5, NIS2 und eigenen Richtlinien, jeder Befund mit Fix als Code.', 'Checks against CIS, ISO 27001, BSI C5, NIS2 and your own policies, every finding with a fix as code.')],
     [t('Mehrere Accounts und Regionen', 'Multiple accounts and regions'), t('Ein Lauf über die ganze Organisation.', 'One run across the whole organisation.')],
     [t('Netzwerk und Rechenzentrum', 'Network and data centre'), t('Geräte und Dienste im eigenen Netz als Ziel.', 'Devices and services in your own network as a target.')],

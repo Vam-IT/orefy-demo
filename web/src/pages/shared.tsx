@@ -2,12 +2,16 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { generateFiles } from '../demo/codegen.ts'
 import { MODULES, CALLS, SERVICE_LABEL, type Finding, type Resource, type Service } from '../demo/data.ts'
 import { useStore, type Run } from '../demo/store.tsx'
-import { Hcl, Icon, Planned, Segmented, SeverityBadge, Status, type Tone } from '../ui.tsx'
+import { Hcl, Icon, Planned, Segmented, ServiceLogo, SeverityBadge, Status, type Tone } from '../ui.tsx'
 
 export type Go = (to: string) => void
 
 export function runStatus(run: Run, t: (de: string, en: string) => string): { tone: Tone; label: string } {
-  if (run.handover === 'pr') return { tone: 'ok', label: t('Übergeben als Pull Request', 'Handed over as pull request') }
+  if (run.handover === 'pr') {
+    return run.delivery?.provider === 'gitlab'
+      ? { tone: 'ok', label: t('Übergeben als Merge Request', 'Handed over as merge request') }
+      : { tone: 'ok', label: t('Übergeben als Pull Request', 'Handed over as pull request') }
+  }
   if (run.handover === 'zip') return { tone: 'ok', label: t('Übergeben als ZIP', 'Handed over as ZIP') }
   if (run.verified) return { tone: 'ok', label: 'Zero-diff' }
   if (run.generated) return { tone: 'info', label: t('Code erzeugt, Prüfung offen', 'Code generated, verification pending') }
@@ -112,8 +116,11 @@ export function ResourceTable({ resources, showMapping, toolbar }: { resources: 
 export function CodeBrowser({ services, verified }: { services: Service[]; verified: boolean }) {
   const { t } = useStore()
   const files = useMemo(() => generateFiles(services, verified), [services, verified])
-  const [name, setName] = useState('imports.tf')
-  const file = files.find((f) => f.name === name) ?? files[0]
+  const [name, setName] = useState('')
+  // Open on a file that shows real infrastructure, not on boilerplate or the import list.
+  const file = files.find((f) => f.name === name)
+    ?? files.find((f) => !['versions.tf', 'providers.tf', 'variables.tf', 'imports.tf'].includes(f.name))
+    ?? files[0]
   return (
     <div className="panel code-browser">
       <ul className="file-list" aria-label={t('Erzeugte Dateien', 'Generated files')}>
@@ -234,8 +241,12 @@ export function Outcomes() {
  * The account as a picture: one tile per resource, grouped by service.
  * `coded` shows the state after the run, when everything unmanaged is in code.
  */
+/** Tiles shown per service on a phone before the rest is folded away. */
+const MAP_PREVIEW = 6
+
 export function ResourceMap({ resources, coded }: { resources: Resource[]; coded?: boolean }) {
   const { t } = useStore()
+  const [open, setOpen] = useState<Service[]>([])
   const services = [...new Set(resources.map((r) => r.service))]
   return (
     <div className="map">
@@ -244,18 +255,26 @@ export function ResourceMap({ resources, coded }: { resources: Resource[]; coded
           const rows = resources.filter((r) => r.service === s)
           return (
             <section key={s} className="map-group">
-              <h3>{SERVICE_LABEL[s]} <span>{rows.length}</span></h3>
+              <h3><span className="with-logo"><ServiceLogo service={s} size={18} />{SERVICE_LABEL[s]}</span> <span>{rows.length}</span></h3>
               <ul>
-                {rows.map((r) => {
+                {rows.map((r, n) => {
                   const state = r.managed === 'iac' ? 'iac' : coded ? 'coded' : 'clickops'
+                  const folded = n >= MAP_PREVIEW && !open.includes(s)
                   return (
-                    <li key={r.id} className={`tile tile-${state}`} title={`${r.kind} · ${r.id}`}>
+                    <li key={r.id} className={`tile tile-${state}${folded ? ' tile-more' : ''}`} title={`${r.kind} · ${r.id}`}>
                       <Icon name={state === 'clickops' ? 'alert' : 'check'} size={13} />
                       <span>{r.name}</span>
                       <small>{r.kind}</small>
                     </li>
                   )
                 })}
+                {rows.length > MAP_PREVIEW && !open.includes(s) && (
+                  <li className="map-more">
+                    <button type="button" className="link" onClick={() => setOpen([...open, s])}>
+                      {t(`+ ${rows.length - MAP_PREVIEW} weitere`, `+ ${rows.length - MAP_PREVIEW} more`)}
+                    </button>
+                  </li>
+                )}
               </ul>
             </section>
           )

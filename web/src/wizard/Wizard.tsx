@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { downloadZip, generateFiles } from '../demo/codegen.ts'
-import { CALLS, CONTACT_EMAIL, MODULES, SERVICES, SPEED, TARGET, deviationFor, findingsFor, resourcesFor, stats, type Service } from '../demo/data.ts'
+import { downloadZip, generateFiles, pipelineFiles } from '../demo/codegen.ts'
+import { CALLS, CONTACT_EMAIL, DEFAULT_REPO, DEMO_ORG, MODULES, PROVIDERS, SERVICES, SPEED, TARGET, deviationFor, findingsFor, resourcesFor, stats, type Provider, type Service } from '../demo/data.ts'
 import { useStore, type Run } from '../demo/store.tsx'
 import { CodeBrowser, FindingCard, Outcomes, PlannedNote, ResourceMap, ResourceTable, Rights, type Go } from '../pages/shared.tsx'
 import { track } from '../track.ts'
-import { Button, Icon, Planned, Segmented, Status, Term } from '../ui.tsx'
+import { Button, Icon, Logo, Planned, Segmented, ServiceLogo, Status, Term } from '../ui.tsx'
+import type { LogoName } from '../logos.ts'
 
 type T = (de: string, en: string) => string
 
@@ -68,7 +69,7 @@ function Connect({ t }: StepProps) {
         <legend>{t('Was möchten Sie in Code überführen?', 'What do you want to turn into code?')}</legend>
         <label className="choice" data-checked="true">
           <input type="radio" name="target" defaultChecked />
-          <Icon name="cloud" size={20} />
+          <Logo name="aws" size={24} />
           <span><b>{t('AWS-Account', 'AWS account')}</b><small>{t('Region Frankfurt (eu-central-1)', 'Region Frankfurt (eu-central-1)')}</small></span>
         </label>
         <label className="choice" aria-disabled="true">
@@ -125,6 +126,7 @@ function Scope({ run, t, update }: StepProps) {
           <li key={s.id}>
             <label>
               <input type="checkbox" checked={run.services.includes(s.id)} onChange={(e) => toggle(s.id, e.target.checked)} />
+              <ServiceLogo service={s.id} size={20} />
               <span><b>{s.label}</b><small>{s.what[lang]}</small></span>
             </label>
           </li>
@@ -195,7 +197,7 @@ function Generate({ run, t, update }: StepProps) {
       {run.generated && (
         <>
           <div className="headline-fact">
-            <b>{files} {t('Dateien', 'files')}</b>
+            <b className="with-logo"><Logo name="terraform" size={26} />{files} {t('Dateien', 'files')}</b>
             <span>{t(`beschreiben jetzt alle ${s.imports} Ressourcen, geordnet nach Themen wie Netzwerk, Speicher und Zugriff.`, `now describe all ${s.imports} resources, organised by topics such as network, storage and access.`)}</span>
           </div>
           <ul className="fact-row">
@@ -270,15 +272,205 @@ function Verify({ run, t, update }: StepProps) {
   )
 }
 
+type Mode = 'deploy' | 'code'
+
+interface TrackItem {
+  group: string
+  /** Mark shown next to the group heading; the first item of a group decides. */
+  logo?: LogoName
+  label: string
+  /** Shown once the item is finished. */
+  result?: string
+  ms: number
+  /** A person has to act before the run continues. */
+  gate?: boolean
+}
+
+/** Runs the delivery items one after another and stops at a gate until someone approves. */
+function Track({ items, t, onComplete }: { items: TrackItem[]; t: T; onComplete: () => void }) {
+  const [n, setN] = useState(0)
+  const current = items[n]
+  const done = useRef(onComplete)
+  useEffect(() => {
+    done.current = onComplete
+  })
+  useEffect(() => {
+    if (n >= items.length) done.current()
+  }, [n, items.length])
+  // Primitive dependencies keep the timer running when the parent re-renders with fresh item objects.
+  const waits = !current || Boolean(current.gate)
+  const ms = current?.ms ?? 0
+  useEffect(() => {
+    if (waits) return
+    const id = setTimeout(() => setN((x) => x + 1), ms * SPEED)
+    return () => clearTimeout(id)
+  }, [n, waits, ms])
+  const groups = [...new Set(items.map((i) => i.group))]
+  const logoOf = (g: string) => items.find((i) => i.group === g)?.logo
+  return (
+    <div className="track" aria-live="polite">
+      {groups.map((g) => (
+        <div key={g} className="track-group">
+          <h4>{logoOf(g) && <Logo name={logoOf(g)!} size={16} />}{g}</h4>
+          <ul className="phases">
+            {items.map((item, i) => {
+              if (item.group !== g) return null
+              if (item.gate && i === n) {
+                return (
+                  <li key={item.label} className="phase phase-gate">
+                    <span className="phase-icon"><Icon name="lock" /></span>
+                    <div className="gate">
+                      <span className="phase-label">{item.label}</span>
+                      <small>{t('Ohne Freigabe wird nichts in AWS verändert, Orefy selbst hat keinen Schreibzugriff. In der Demo übernehmen Sie das Review.', 'Nothing in AWS changes without approval, and Orefy itself has no write access. In the demo you do the review.')}</small>
+                      <Button variant="primary" icon="checkCircle" onClick={() => setN(n + 1)}>
+                        {t('Freigeben', 'Approve')}
+                      </Button>
+                    </div>
+                  </li>
+                )
+              }
+              return <Phase key={item.label} state={phaseState(i, n)} label={item.label} detail={i < n ? item.result : undefined} />
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Simulated delivery: push to the team's repository, run the pipeline, wait for a human, apply. */
+function Delivery({ run, t, update }: StepProps) {
+  const [provider, setProvider] = useState<Provider>('github')
+  const [repo, setRepo] = useState(DEFAULT_REPO)
+  const [mode, setMode] = useState<Mode>('deploy')
+  /** Number of fixes when the handover started; null before. Later changes to the selection do not alter a running handover. */
+  const [started, setStarted] = useState<number | null>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const prov = PROVIDERS.find((p) => p.id === provider) ?? PROVIDERS[0]
+  const s = stats(run.services)
+  const slug = repo.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '')
+  const target = `${DEMO_ORG}/${slug}`
+  const deploy = mode === 'deploy'
+  const files = [...generateFiles(run.services, true), ...(deploy ? pipelineFiles(provider) : [])]
+  const fixes = started ?? run.fixes.length
+  const pr = prov.pr
+
+  useEffect(() => {
+    if (started !== null) box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [started])
+
+  const repoGroup = t('Repository', 'Repository')
+  const items: TrackItem[] = [
+    { group: repoGroup, logo: provider, label: t(`Mit ${prov.label} verbinden`, `Connect to ${prov.label}`), ms: 600 },
+    { group: repoGroup, label: t(`Repository ${target} anlegen`, `Create repository ${target}`), ms: 700 },
+    { group: repoGroup, label: t(`${files.length} Dateien hochladen`, `Upload ${files.length} files`), result: deploy ? t('inkl. Pipeline', 'incl. pipeline') : undefined, ms: 900 },
+    { group: repoGroup, label: t(`${pr} #1: Code Ihrer Umgebung`, `${pr} #1: code of your environment`), result: t('geöffnet', 'opened'), ms: 700 },
+    ...(fixes ? [{ group: repoGroup, label: t(`${pr} #2: ${fixes} Korrekturen`, `${pr} #2: ${fixes} fixes`), result: t('geöffnet, wartet auf Review', 'opened, awaiting review'), ms: 600 }] : []),
+  ]
+  if (deploy) {
+    const checks = t('Automatische Prüfung', 'Automatic checks')
+    const aws = t('Anwenden in AWS', 'Apply to AWS')
+    items.push(
+      { group: checks, logo: provider === 'github' ? 'githubactions' : 'gitlab', label: t('Format und Gültigkeit prüfen', 'Check format and validity'), result: 'fmt · validate', ms: 1100 },
+      { group: checks, label: t('Mit AWS abgleichen', 'Compare with AWS'), result: t(`0 Änderungen`, '0 changes'), ms: 1600 },
+      { group: aws, logo: 'aws', label: t(`${pr} #1 freigeben und Anwenden starten`, `Approve ${pr.toLowerCase()} #1 and start the apply`), ms: 0, gate: true },
+      { group: aws, label: t('Kurzlebige Zugangsdaten holen', 'Get short-lived credentials'), result: 'OIDC', ms: 900 },
+      { group: aws, label: t('Code anwenden', 'Apply the code'), result: t(`${s.imports} übernommen, 0 geändert`, `${s.imports} adopted, 0 changed`), ms: 1800 },
+    )
+  }
+  const [complete, setComplete] = useState(false)
+
+  const finish = () =>
+    update({ handover: 'pr', finishedAt: Date.now(), delivery: { provider, repo: target, pipeline: deploy, applied: deploy } })
+
+  if (started === null) {
+    return (
+      <div className="delivery">
+        <div className="delivery-target">
+          <div className="field narrow">
+            <span>{t('Ziel', 'Destination')}</span>
+            <Segmented label={t('Ziel', 'Destination')} value={provider} onChange={setProvider} options={PROVIDERS.map((p) => ({ value: p.id, label: <><Logo name={p.id} size={16} />{p.label}</> }))} />
+          </div>
+          <label className="field">
+            <span>{t('Neues Repository', 'New repository')}</span>
+            <span className="repo-input">
+              <span className="mono muted">{DEMO_ORG}/</span>
+              <input className="mono" value={repo} maxLength={60} onChange={(e) => setRepo(e.target.value)} aria-label={t('Name des Repositorys', 'Repository name')} />
+            </span>
+          </label>
+        </div>
+        <p className="hint">{t('Bitbucket und Azure DevOps sind geplant.', 'Bitbucket and Azure DevOps are planned.')}</p>
+
+        <p className="hint">
+          {fixes
+            ? t(`Sie erhalten zwei getrennte ${pr}s: #1 mit dem Code Ihrer Umgebung (ändert nichts), #2 mit ${fixes} Korrekturen. So übernehmen Sie den risikofreien Teil zuerst.`, `You receive two separate ${pr.toLowerCase()}s: #1 with the code of your environment (changes nothing), #2 with ${fixes} fixes. That way you adopt the risk-free part first.`)
+            : t(`Sie erhalten einen ${pr} mit dem Code Ihrer Umgebung. Er ändert nichts an Ihrer Umgebung.`, `You receive one ${pr.toLowerCase()} with the code of your environment. It changes nothing in your environment.`)}
+        </p>
+        <fieldset className="choices">
+          <legend>{t('Wie weit soll es gehen?', 'How far should it go?')}</legend>
+          <label className="choice" data-checked={deploy}>
+            <input type="radio" name="mode" checked={deploy} onChange={() => setMode('deploy')} />
+            <Logo name={provider === 'github' ? 'githubactions' : 'gitlab'} size={22} />
+            <span>
+              <b>{t('Code, Pipeline und Deployment', 'Code, pipeline and deployment')}</b>
+              <small>{t(`${prov.pipeline} prüft den Code und wendet ihn nach Ihrer Freigabe in AWS an.`, `${prov.pipeline} checks the code and applies it to AWS after your approval.`)}</small>
+            </span>
+          </label>
+          <label className="choice" data-checked={!deploy}>
+            <input type="radio" name="mode" checked={!deploy} onChange={() => setMode('code')} />
+            <Icon name="pullRequest" size={22} />
+            <span>
+              <b>{t(`Nur Code als ${pr}`, `Code only, as a ${pr.toLowerCase()}`)}</b>
+              <small>{t('Ihr Team prüft und wendet mit eigenen Werkzeugen an.', 'Your team reviews and applies with its own tools.')}</small>
+            </span>
+          </label>
+        </fieldset>
+
+        <div className="handover-actions">
+          <Button variant="primary" iconRight="arrowRight" disabled={!slug} onClick={() => setStarted(run.fixes.length)}>
+            {deploy ? t(`An ${prov.label} übergeben und Pipeline starten`, `Hand over to ${prov.label} and start the pipeline`) : t(`An ${prov.label} übergeben`, `Hand over to ${prov.label}`)}
+          </Button>
+          <Button variant="ghost" icon="download" onClick={() => { downloadZip(generateFiles(run.services, true)); update({ handover: 'zip', finishedAt: Date.now() }) }}>
+            {t('Lieber als ZIP herunterladen', 'Download as ZIP instead')}
+          </Button>
+        </div>
+        <Details label={t(`Welche ${files.length} Dateien werden übertragen?`, `Which ${files.length} files are pushed?`)}>
+          <ul className="push-files">{files.map((f) => <li key={f.name} className="mono">{f.name}</li>)}</ul>
+        </Details>
+        <p className="hint">{t('In der Demo wird nichts verschickt. Repository-Anbindung und Pipeline sind geplant.', 'Nothing is sent in the demo. Repository connection and pipeline are planned.')}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="delivery" ref={box}>
+      <PlannedNote>{t('Repository-Anbindung und Pipeline sind geplant und hier simuliert.', 'Repository connection and pipeline are planned and simulated here.')}</PlannedNote>
+      <Track items={items} t={t} onComplete={() => setComplete(true)} />
+      {complete && (
+        <>
+          <div className="banner ok" role="status">
+            <Icon name="checkCircle" size={22} />
+            <div>
+              <b>{deploy ? t('Fertig: Der Code liegt in Ihrem Repository und läuft über die Pipeline.', 'Done: the code is in your repository and runs through the pipeline.') : t(`Fertig: ${pr} #1 wartet auf Ihr Team.`, `Done: ${pr.toLowerCase()} #1 is waiting for your team.`)}</b>
+              <span>
+                <span className="mono">{prov.label} · {target}</span>
+                {deploy && t(` · ${s.imports} Ressourcen übernommen, nichts geändert`, ` · ${s.imports} resources adopted, nothing changed`)}
+                {fixes > 0 && t(` · ${pr} #2 mit den Korrekturen wartet auf Review`, ` · ${pr.toLowerCase()} #2 with the fixes awaits review`)}
+              </span>
+            </div>
+          </div>
+          <div className="handover-actions">
+            <Button variant="primary" iconRight="arrowRight" onClick={finish}>{t('Ergebnis ansehen', 'See the result')}</Button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function Handover({ run, t, update }: StepProps) {
-  const [busy, setBusy] = useState(false)
   const findings = findingsFor(run.services)
   const s = stats(run.services)
-  useEffect(() => {
-    if (!busy) return
-    const id = setTimeout(() => update({ handover: 'pr', finishedAt: Date.now() }), 1000 * SPEED)
-    return () => clearTimeout(id)
-  }, [busy, update])
   const toggle = (id: string, on: boolean) => update({ fixes: on ? [...run.fixes, id] : run.fixes.filter((f) => f !== id) })
   return (
     <>
@@ -292,42 +484,8 @@ function Handover({ run, t, update }: StepProps) {
         ))}
       </div>
 
-      <h3 className="section">{t('Was Sie erhalten', 'What you receive')}</h3>
-      <div className="handover">
-        <div className="handover-item">
-          <Icon name="pullRequest" size={20} />
-          <div>
-            <b>{t('1. Der Code Ihrer Umgebung', '1. The code of your environment')}</b>
-            <span>{t(`${s.imports} Ressourcen. Die Übernahme ändert nichts an Ihrer Umgebung.`, `${s.imports} resources. Adopting it changes nothing in your environment.`)}</span>
-          </div>
-        </div>
-        <div className="handover-item" data-off={run.fixes.length === 0}>
-          <Icon name="pullRequest" size={20} />
-          <div>
-            <b>{t('2. Die Korrekturen, getrennt', '2. The fixes, separately')}</b>
-            <span>
-              {run.fixes.length
-                ? t(`${run.fixes.length} Risiken behoben. Wirkt erst, wenn Ihr Team es freigibt.`, `${run.fixes.length} risks fixed. Takes effect only when your team approves it.`)
-                : t('Keine Korrektur ausgewählt.', 'No fix selected.')}
-            </span>
-          </div>
-        </div>
-      </div>
-      <div className="handover-actions">
-        <Button variant="primary" icon="pullRequest" busy={busy} onClick={() => setBusy(true)}>
-          {t('An mein Team übergeben', 'Hand over to my team')}
-        </Button>
-        <Button
-          icon="download" disabled={busy}
-          onClick={() => { downloadZip(generateFiles(run.services, true)); update({ handover: 'zip', finishedAt: Date.now() }) }}
-        >
-          {t('Code als ZIP herunterladen', 'Download code as ZIP')}
-        </Button>
-      </div>
-      <p className="hint">
-        {t('Die Übergabe erfolgt als ', 'The handover arrives as a ')}<Term k="pr">Pull Request</Term>
-        {t(' in Ihrem Repository. In der Demo wird nichts verschickt.', ' in your repository. Nothing is sent in the demo.')}
-      </p>
+      <h3 className="section">{t('Übergabe an Ihr Team', 'Handover to your team')}</h3>
+      <Delivery run={run} t={t} update={update} />
     </>
   )
 }
@@ -360,13 +518,15 @@ function Done({ run, t, go, onNew }: { run: Run; t: T; go: Go; onNew: () => void
         <Icon name="arrowRight" size={22} />
         <div>
           <span className="result-label">{t('Nachher', 'After')}</span>
-          <b>{files} {t('Terraform-Dateien', 'Terraform files')}</b>
+          <b className="with-logo"><Logo name="terraform" size={20} />{files} {t('Terraform-Dateien', 'Terraform files')}</b>
           <span>{t(`Alle ${s.imports} Ressourcen beschrieben, mit ${modules} geprüften Community-Bausteinen.`, `All ${s.imports} resources described, using ${modules} proven community building blocks.`)}</span>
         </div>
       </div>
       <ul className="result-facts">
         <li><Status tone="ok">{t('0 Änderungen an der Live-Umgebung', '0 changes to the live environment')}</Status></li>
         <li><Status tone="ok">{t('Nur Lesezugriff verwendet', 'Read-only access used')}</Status></li>
+        {run.delivery && <li><Status tone="ok"><span>{run.delivery && <Logo name={run.delivery.provider} size={14} />} {t('Code in', 'Code in')} {PROVIDERS.find((p) => p.id === run.delivery?.provider)?.label}: <span className="mono">{run.delivery.repo}</span> {t('(simuliert)', '(simulated)')}</span></Status></li>}
+        {run.delivery?.pipeline && <li><Status tone="ok">{run.delivery.applied ? t('Pipeline geprüft, nach Freigabe in AWS angewendet (simuliert)', 'Pipeline checked, applied to AWS after approval (simulated)') : t('Pipeline eingerichtet (simuliert)', 'Pipeline set up (simulated)')}</Status></li>}
         <li><Status tone="info">{findings} {t('Risiken gefunden, jedes mit Korrektur', 'risks found, each with a fix')}</Status></li>
       </ul>
 
@@ -466,12 +626,12 @@ export function Wizard({ go }: { go: Go }) {
     },
     {
       label: t('Übergabe', 'Handover'), title: t('Risiken beheben und Code übernehmen', 'Fix risks and take over the code'),
-      lead: t('Sie erhalten den Code zur Prüfung. Angewendet wird er von Ihnen.', 'You receive the code for review. You apply it yourself.'),
+      lead: t('Der Code landet in Ihrem Repository, die Pipeline prüft ihn, Ihr Team gibt frei.', 'The code lands in your repository, the pipeline checks it, your team approves.'),
       benefit: t('Sie behalten die Kontrolle: Ihr Team prüft, Ihr Team gibt frei.', 'You stay in control: your team reviews, your team approves.'),
       explain: [
         t('Code und Korrekturen kommen getrennt, damit Sie den risikofreien Teil zuerst übernehmen können.', 'Code and fixes arrive separately so you can adopt the risk-free part first.'),
         t('Jede Korrektur ist eine Änderung am Code, kein Klick in der Konsole.', 'Every fix is a change to the code, not a click in the console.'),
-        t('Das Anwenden bleibt ein Schritt, den ein Mensch auslöst.', 'Applying stays a step a person triggers.'),
+        t('Angewendet wird erst nach Freigabe, durch die Pipeline Ihres Teams mit kurzlebigen Zugangsdaten. Orefy schreibt nie selbst in AWS.', 'Applying happens only after approval, by your team\'s pipeline with short-lived credentials. Orefy never writes to AWS itself.'),
       ],
       ready: false, next: '',
     },

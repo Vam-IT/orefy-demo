@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { useStore } from './demo/store.tsx'
-import { TERMS, type Severity, type TermKey } from './demo/data.ts'
+import { TERMS, type Service, type Severity, type TermKey } from './demo/data.ts'
+import { LOGOS, type LogoName } from './logos.ts'
 
 // Lucide outlines, inlined so the app ships without an icon dependency.
 const ICONS = {
@@ -34,6 +35,7 @@ const ICONS = {
   printer: <><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /><rect x="6" y="14" width="12" height="8" rx="1" /></>,
   link: <><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></>,
   mail: <><path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" /><rect x="2" y="4" width="20" height="16" rx="2" /></>,
+  bell: <><path d="M10.268 21a2 2 0 0 0 3.464 0" /><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" /></>,
   layers: <><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></>,
 }
 
@@ -49,6 +51,31 @@ export function Icon({ name, size = 16, spin }: { name: IconName; size?: number;
       {ICONS[name]}
     </svg>
   )
+}
+
+// Near-black brand colours would vanish on dark surfaces, so these marks follow the text colour.
+const MONO: LogoName[] = ['aws', 'github']
+
+/** A brand mark. Decorative by default; pass `label` when the logo stands alone without text. */
+export function Logo({ name, size = 16, label }: { name: LogoName; size?: number; label?: string }) {
+  const logo = LOGOS[name]
+  return (
+    <svg
+      className="logo" width={size} height={size} viewBox="0 0 24 24"
+      fill={MONO.includes(name) ? 'currentColor' : logo.hex}
+      role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}
+    >
+      <path d={logo.path} />
+    </svg>
+  )
+}
+
+const SERVICE_LOGO: Record<Service, LogoName | null> = { ec2: 'ec2', s3: 's3', iam: 'iam', lambda: 'lambda', sqs: 'sqs', sns: null, dynamodb: 'dynamodb' }
+
+/** Service mark for the inventory; SNS has no published mark and uses a neutral icon. */
+export function ServiceLogo({ service, size = 16 }: { service: Service; size?: number }) {
+  const name = SERVICE_LOGO[service]
+  return name ? <Logo name={name} size={size} /> : <span className="logo-fallback"><Icon name="bell" size={size} /></span>
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -136,7 +163,7 @@ export function Empty({ icon, title, text, action }: { icon: IconName; title: st
 export function Segmented<T extends string>({ value, onChange, options, label }: {
   value: T
   onChange: (v: T) => void
-  options: { value: T; label: string }[]
+  options: { value: T; label: ReactNode }[]
   label: string
 }) {
   return (

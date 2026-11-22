@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { SERVICES, type Service } from './data.ts'
+import { SERVICES, START_LANG, type Provider, type Service } from './data.ts'
 
 export interface Run {
   id: number
@@ -15,6 +15,8 @@ export interface Run {
   fixes: string[]
   handover: null | 'pr' | 'zip'
   finishedAt?: number
+  /** Set when the code was pushed to a repository. */
+  delivery?: { provider: Provider; repo: string; pipeline: boolean; applied: boolean }
 }
 
 export type Lang = 'de' | 'en'
@@ -40,55 +42,21 @@ interface Store {
   t: (de: string, en: string) => string
 }
 
-const KEY = 'orefy.demo.v1'
 const Ctx = createContext<Store | null>(null)
 
-function load(): State {
-  try {
-    const s = JSON.parse(sessionStorage.getItem(KEY) ?? 'null') as State | null
-    if (s && Array.isArray(s.runs)) return s
-  } catch {
-    /* fall through to a fresh demo */
-  }
-  return { runs: [] }
-}
-
-const pref = <T extends string>(key: string, allowed: T[], fallback: T): T => {
-  try {
-    const v = localStorage.getItem(key) as T | null
-    return v && allowed.includes(v) ? v : fallback
-  } catch {
-    return fallback
-  }
-}
+// The demo keeps everything in memory: the privacy policy on orefy.cloud promises that nothing is written to or
+// read from the visitor's device. Do not add local or session storage without changing that policy first.
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<State>(load)
-  const [lang, setLangState] = useState<Lang>(() => pref('orefy.lang', ['de', 'en'], 'de'))
-  const [theme, setThemeState] = useState<Theme>(() => pref('orefy.theme', ['light', 'dark'], 'light'))
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(KEY, JSON.stringify(state))
-    } catch {
-      /* storage unavailable: the demo still works for this page view */
-    }
-  }, [state])
+  const [state, setState] = useState<State>({ runs: [] })
+  const [lang, setLang] = useState<Lang>(START_LANG)
+  const [theme, setTheme] = useState<Theme>('light')
 
   useEffect(() => {
     document.documentElement.lang = lang
     document.documentElement.dataset.theme = theme
     document.title = 'Orefy Demo'
   }, [lang, theme])
-
-  const setLang = useCallback((l: Lang) => {
-    setLangState(l)
-    try { localStorage.setItem('orefy.lang', l) } catch { /* ignore */ }
-  }, [])
-  const setTheme = useCallback((t: Theme) => {
-    setThemeState(t)
-    try { localStorage.setItem('orefy.theme', t) } catch { /* ignore */ }
-  }, [])
 
   const startRun = useCallback(() => {
     setState((s) => {
